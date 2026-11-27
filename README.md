@@ -84,6 +84,11 @@ Escalation tiers:
 2. **Backup / secondary** — takes over when the primary is unavailable.
 3. **Security / on-call** — escalate security-sensitive issues (key handling, authorization, contract upgrades) to the security lead, and production incidents to the platform on-call.
 
+- **Frontend Required Gate**: `npm ci`, `npm run lint`, `npm run build`, `npm test` in `frontend/`
+- **Backend Required Gate**: `npm ci`, `npm run build`, `npm test` in `backend/`
+- **Mobile Required Gate**: `npm ci`, `npm run type-check`, `npm run lint` in `mobile/`
+- **Contracts Required Gate**: `cargo test` in `contracts/amana_escrow/`
+
 Contact owners through the team's existing channels (issue tracker, team chat, and on-call rotation). Do not embed personal contact details, secrets, or PII in this repository; keep rosters in the private team directory and reference roles here.
 
 To update the map, edit `docs/OWNERSHIP.md` and keep this summary table in sync. Ownership changes should be reviewed like any other documentation change.
@@ -143,17 +148,99 @@ The mobile app must not silently fail or queue unsupported work while the device
 - Only actions explicitly marked as offline-queueable are queued; all other actions are blocked with a clear message until connectivity returns.
 - When connectivity is restored, queued work is flushed and any failures are reported without leaking secrets or PII.
 
-## 📐 Architecture Decision Records
+---
 
-Key architectural decisions are documented as ADRs in [`docs/adr/`](./docs/adr):
+## 🤝 Pilot Cooperative Onboarding Guide
 
-- [ADR-001: Stellar Path Payment Architecture](./docs/adr/ADR-001-stellar-path-payment-architecture.md)
-- [ADR-002: Escrow Loss-Sharing Model](./docs/adr/ADR-002-escrow-loss-sharing-model.md)
-- [ADR-003: Off-chain vs. On-chain Data Partitioning](./docs/adr/ADR-003-offchain-vs-onchain-data-partitioning.md)
-- [ADR-004: Idempotency and Retry Strategy](./docs/adr/ADR-004-idempotency-and-retry-strategy.md)
-- [ADR-005: Frontend State Management](./docs/adr/ADR-005-frontend-state-management.md)
+This guide walks a regional agricultural cooperative through joining the innov8 pilot program. It covers eligibility, environment setup, wallet setup, funding, support, and graduation. It is documentation only and does not change application, contract, or configuration behavior.
 
-## 🔐 Security & Operations
+### 1. Eligibility
+
+A cooperative is eligible for the pilot when it meets all of the following:
+
+- Registered cooperative or farmer group with an active membership roster.
+- At least one designated pilot coordinator who can operate the frontend and mobile apps.
+- Buyers and sellers who can complete trades in cNGN/stablecoins on Stellar.
+- Agreement to the platform's 1% settlement fee and the negotiable `Loss_Ratio` model.
+- A named point of contact for support and dispute escalation.
+
+Coordinators should confirm eligibility with the innov8 team before provisioning wallets or funding accounts.
+
+### 2. Environment
+
+Pilot participants use the standard stack described above. Recommended setup:
+
+- **Frontend:** `frontend/` running against the pilot backend endpoint.
+- **Mobile:** `mobile/` for field coordinators and drivers.
+- **Backend:** managed by the innov8 team; cooperatives do not run their own backend in the pilot.
+- **Contracts:** deployed by the innov8 team on the pilot network; cooperatives do not deploy contracts.
+
+Copy the relevant `.env.example` files as described in the setup sections above. Never commit `.env` files, seed phrases, or private keys. Report suspected secret exposure per [SECURITY.md](./SECURITY.md).
+
+### 3. Wallet Setup
+
+1. Install [Freighter](https://www.freighter.app/) or use [Albedo](https://albedo.link/).
+2. Create a dedicated wallet per cooperative entity (not a personal wallet).
+3. Back up the recovery phrase offline and store it in a secure, access-controlled location.
+4. Connect the wallet to the pilot frontend and confirm the public address is displayed correctly.
+5. Register the wallet address with the innov8 pilot coordinator so it can be allowlisted for the pilot.
+
+Do not share recovery phrases with anyone, including innov8 staff. Support will never ask for a recovery phrase or private key.
+
+For step-by-step testnet wallet creation, funding, network selection, and reset procedures, see the [Stellar Testnet Pilot Wallet Guide](./docs/stellar-testnet-pilot-wallet.md).
+
+---
+
+## ⚖️ Mediator Decision-Making Guide
+
+This guide describes how mediators review disputes, handle conflicts of interest, escalate, and protect privacy. It is documentation only and does not change application, contract, or configuration behavior. Mediators act on the existing dispute workflow in the Mediator dashboard; the smart contract enforces the final settlement distribution.
+
+### 1. Evidence Review
+
+When a dispute is opened, the buyer and seller may submit evidence (for example, Proof-of-Delivery video stored on IPFS, driver manifest logs, and trade metadata). Mediators should:
+
+- Confirm the trade is in the `Dispute` state and that the agreed `Loss_Ratio` is visible before reviewing evidence.
+- Review all submitted evidence for both parties, not just the first submission.
+- Verify that video evidence hashes match the IPFS references recorded for the trade; treat unverifiable or mismatched evidence as unconfirmed.
+- Cross-check the driver manifest (driver name, phone, vehicle) against the trade record.
+- Record the evidence considered and the reasoning in the dispute notes so the decision is auditable.
+- Give both parties a reasonable window to respond before deciding; do not decide on one-sided evidence unless a party fails to respond within the stated window.
+
+### 2. Conflict Handling
+
+- A mediator must decline any dispute where they have a personal, financial, or family relationship with either party, the driver, or the goods involved.
+- A mediator must not mediate a dispute for a trade they initiated, funded, or are otherwise party to.
+- If a conflict is discovered after review begins, the mediator must stop, disclose the conflict to the innov8 team, and hand the dispute to another mediator.
+- Mediators must not accept gifts, payments, or favors from either party in exchange for a favorable outcome.
+- Decisions must be based only on the evidence and the agreed `Loss_Ratio`, not on the parties' reputation scores alone.
+
+### 3. Escalation
+
+Escalate a dispute to the innov8 team when any of the following applies:
+
+- Evidence is missing, contradictory, or cannot be verified against IPFS references.
+- The parties allege fraud, theft, or threats, or the situation appears unsafe.
+- The dispute involves amounts or patterns that suggest abuse of the pilot.
+- A conflict of interest cannot be resolved by reassignment.
+- A technical failure (for example, an unreadable video or a failed settlement transaction) blocks a decision.
+
+When escalating, share only the trade identifier, the dispute state, and the evidence references needed to act. Do not paste recovery phrases, private keys, or full personal contact details into escalation channels.
+
+### 4. Privacy Expectations
+
+- Access evidence only for disputes assigned to you; do not browse unrelated trades.
+- Do not download, copy, or redistribute evidence outside the dispute workflow.
+- Do not share parties' personal data (names, phone numbers, addresses, wallet recovery material) with third parties.
+- Redact personal data from dispute notes and escalation messages where it is not needed to decide the dispute.
+- Report any suspected data exposure or secret leak per [SECURITY.md](./SECURITY.md).
+
+### 5. Failure States
+
+- If evidence cannot be loaded, do not guess the outcome; escalate and leave the dispute open.
+- If a settlement transaction fails, do not retry with altered parameters; escalate so the innov8 team can investigate.
+- If a party stops responding, document the attempts and the response window before deciding.
+
+---
 
 - [Security Policy](./SECURITY.md) — privately report vulnerabilities through GitHub's private vulnerability reporting.
 - [Threat Model](./docs/threat-model.md) — reviewed quarterly and on trigger events; see §8 for cadence/ownership and `docs/threat-model-review-checklist.md` for the reviewer checklist.
