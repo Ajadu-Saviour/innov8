@@ -1,94 +1,64 @@
 # innov8
 
-Agricultural escrow platform.
+### 3. Fees
 
-## Local full-stack development guide
+Fee = `escrowed_value * fee_rate`, rounded per the rules above. Fees are charged on the delivered value, not on the loss.
 
-This guide provides one reproducible setup for the frontend, backend, mobile app, contracts, Supabase, and tracing. Run the steps in order from a fresh clone.
-
-### Prerequisites
-
-- Node.js 20 LTS and npm 10
-- Docker Desktop (for Supabase local stack)
-- Rust toolchain with `wasm32-unknown-unknown` target (contracts)
-- Expo CLI (`npx expo`) for the mobile app
-
-### 1. Environment configuration
-
-Copy the example env files and fill in local-only values. Never commit real secrets.
-
-```bash
-cp .env.example .env
-cp apps/web/.env.example apps/web/.env
-cp apps/api/.env.example apps/api/.env
-cp apps/mobile/.env.example apps/mobile/.env
-```
-
-Key local defaults (override in your `.env` files):
-
-| Variable | Purpose | Local default |
+| Escrowed value | Fee rate | Fee |
 | --- | --- | --- |
-| `DATABASE_URL` | Backend Postgres connection | `postgresql://postgres:postgres@localhost:54322/postgres` |
-| `SUPABASE_URL` | Supabase API endpoint | `http://localhost:54321` |
-| `SUPABASE_ANON_KEY` | Public anon key (local only) | printed by `supabase start` |
-| `API_PORT` | Backend HTTP port | `3001` |
-| `WEB_PORT` | Frontend dev server port | `3000` |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Tracing collector | `http://localhost:4318` |
+| 10,000 | 0.01 | 100 |
 
-### 2. Supabase
+- Negative amounts are not expected in settlement output; if produced, they indicate a bug and must fail validation.
+- Rounding must never cause the sum of payouts to exceed the escrowed value; any residual unit is assigned to the platform fee bucket, not duplicated.
 
-```bash
-supabase start
-supabase db reset   # applies migrations and seed data
-```
+### 3. Fees
 
-`supabase start` prints the local anon/service keys; copy them into your `.env` files. Do not reuse production keys locally.
+Fee = `escrowed_value * fee_rate`, rounded per the rules above. Fees are charged on the delivered value, not on the loss.
 
-### 3. Backend
+| Escrowed value | Fee rate | Fee |
+| --- | --- | --- |
+| 10,000 | 0.01 | 100 |
+| 10,000 | 0.025 | 250 |
+| 10,000 | 0.00 | 0 |
 
-```bash
-npm install
-npm run --workspace apps/api dev
-```
+Edge cases:
 
-The API listens on `API_PORT` (default `3001`) and exposes a health check at `GET /health`.
+- Fee rate outside `[0, 1]` is rejected as invalid configuration.
+- A zero fee rate is valid and produces a zero fee.
+- Fees are never charged on the loss portion of a partial delivery.
 
-### 4. Frontend
+### 4. Partial delivery outcomes
 
-```bash
-npm run --workspace apps/web dev
-```
+When only part of a delivery is fulfilled, the escrow splits into delivered value, loss, and fee.
 
-The web app runs on `WEB_PORT` (default `3000`) and reads `SUPABASE_URL`/`SUPABASE_ANON_KEY` from `apps/web/.env`.
+Example: escrowed value `10,000`, delivered `6,000`, loss `4,000`, fee rate `0.01`.
 
-### 5. Mobile
+| Bucket | Calculation | Amount |
+| --- | --- | --- |
+| Delivered value | given | 6,000 |
+| Loss | given | 4,000 |
+| Fee | 6,000 * 0.01 | 60 |
+| Farmer payout | 6,000 - 60 | 5,940 |
+| Buyer refund | 4,000 | 4,000 |
 
-```bash
-npm run --workspace apps/mobile start
-```
+Edge cases:
 
-Point the mobile app at your machine's LAN IP (not `localhost`) so a physical device can reach the backend and Supabase.
+- Delivered `0` (total loss): farmer payout `0`, fee `0`, buyer refund equals escrowed value.
+- Delivered equals escrowed value (full delivery): loss `0`, fee charged on full value, buyer refund `0`.
+- Delivered plus loss must equal escrowed value; any mismatch fails validation before settlement.
+- Failure states (invalid inputs, mismatched totals, out-of-range fee rates) must reject the settlement and leave escrow unchanged; no partial payouts are emitted.
 
-### 6. Contracts
+### 5. Failure states summary
 
-```bash
-rustup target add wasm32-unknown-unknown
-cargo build --release --target wasm32-unknown-unknown
-cargo test
-```
+| Condition | Outcome |
+| --- | --- |
+| Escrowed value `0` | Rejected |
+| Loss > escrowed value | Rejected |
+| Fee rate outside `[0, 1]` | Rejected |
+| Delivered + loss != escrowed value | Rejected |
+| Negative payout | Rejected |
 
-Deploy to the local network only after tests pass; never deploy with production keys from a local shell.
-
-### 7. Tracing
-
-Run an OTLP-compatible collector (for example the Jaeger all-in-one container) and set `OTEL_EXPORTER_OTLP_ENDPOINT` to its HTTP endpoint. If the collector is unreachable, services log a warning and continue serving traffic; tracing is best-effort and must never block requests.
-
-### Required CI gates
-
-- **Frontend Required Gate**: `npm ci`, `npm run lint`, `npm run build`, `npm test` in `frontend/`
-- **Backend Required Gate**: `npm ci`, `npm run build`, `npm test` in `backend/`
-- **Mobile Required Gate**: `npm ci`, `npm run type-check`, `npm run lint` in `mobile/`
-- **Contracts Required Gate**: `cargo test` in `contracts/amana_escrow/`
+Rejected settlements must not leak party identifiers or amounts in error messages beyond what the caller already supplied.
 
 ### Troubleshooting
 
