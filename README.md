@@ -1,15 +1,57 @@
 # innov8
 
-### 3. Fees
+# innov8
 
-Fee = `escrowed_value * fee_rate`, rounded per the rules above. Fees are charged on the delivered value, not on the loss.
+Agricultural escrow platform connecting smallholder farmers, buyers, and financiers through transparent, milestone-based settlement.
 
-| Escrowed value | Fee rate | Fee |
-| --- | --- | --- |
-| 10,000 | 0.01 | 100 |
+## Repository layout
 
-- Negative amounts are not expected in settlement output; if produced, they indicate a bug and must fail validation.
-- Rounding must never cause the sum of payouts to exceed the escrowed value; any residual unit is assigned to the platform fee bucket, not duplicated.
+- `backend/` — API service (Node.js/TypeScript)
+- `.github/workflows/` — CI and deployment pipelines
+
+## Setup
+
+See `backend/README.md` for backend setup instructions.
+
+## Container image promotion
+
+Deployment pipelines promote **immutable image digests** (`sha256:...`) between
+environments instead of mutable tags. Tags such as `latest` or `staging` are
+convenience labels only and are never used to select what runs in an
+environment.
+
+### How it works
+
+1. The build job publishes the image and records its digest
+   (`docker buildx imagetools inspect` / `docker inspect --format '{{index .RepoDigests 0}}'`).
+2. The digest is passed to downstream environments as a workflow input
+   (`image_digest`), not a tag.
+3. Each environment pulls by digest, e.g.
+   `ghcr.io/<org>/innov8-backend@sha256:<digest>`.
+
+### Configuration
+
+- `IMAGE_DIGEST` — the `sha256:...` digest to deploy. Required for staging and
+  production deploys; the workflow fails fast if it is missing or malformed.
+- `IMAGE_REPOSITORY` — registry/repository path the digest belongs to.
+
+Example (`.env.staging.example`):
+
+```dotenv
+IMAGE_REPOSITORY=ghcr.io/innov8/innov8-backend
+IMAGE_DIGEST=sha256:0000000000000000000000000000000000000000000000000000000000000000
+```
+
+### Operational notes
+
+- Digests are immutable: re-running a deploy with the same digest is safe and
+  idempotent.
+- To roll back, redeploy the previously recorded digest — do not retag.
+- Promotion between environments must reuse the exact digest that passed the
+  prior environment's checks; rebuilding produces a different digest and is not
+  a valid promotion.
+- Never commit real digests or registry credentials to the repository; supply
+  them via CI secrets or environment configuration.
 
 ### 3. Fees
 
@@ -26,6 +68,8 @@ Edge cases:
 - Fee rate outside `[0, 1]` is rejected as invalid configuration.
 - A zero fee rate is valid and produces a zero fee.
 - Fees are never charged on the loss portion of a partial delivery.
+- Negative amounts are not expected in settlement output; if produced, they indicate a bug and must fail validation.
+- Rounding must never cause the sum of payouts to exceed the escrowed value; any residual unit is assigned to the platform fee bucket, not duplicated.
 
 ### 4. Partial delivery outcomes
 
@@ -279,3 +323,4 @@ Vulnerability reports are handled under the timelines below. All times are measu
 - Fixes ship with regression tests covering the reported failure path before the advisory is published.
 
 See the mobile stack documentation for the list of supported offline-queueable actions.
+
