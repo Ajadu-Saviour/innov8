@@ -23,6 +23,7 @@ import { captureRawBody } from "./middleware/webhookSignature.middleware";
 import { createAdminDlqRouter } from "./routes/admin.dlq.routes";
 import { createAdminWalletChallengeRouter } from "./routes/admin.walletChallenge.routes";
 import { createAdminReportRouter } from "./routes/admin.report.routes";
+import { createAdminApiKeyScopeRouter } from "./routes/admin.apiKeyScope.routes";
 import { createAdminNotificationTemplatesRouter } from "./routes/admin.notificationTemplates.routes";
 import { adminFeatureGate } from "./middleware/adminFeatureGate.middleware";
 import { env } from "./config/env";
@@ -178,6 +179,8 @@ export function createApp(isShuttingDown?: () => boolean): express.Application {
   // Admin cross-entity reporting: POST /api/admin/reports/query, /api/admin/reports/saved
   app.use(adminFeatureGate, csrfProtection, createAdminReportRouter());
 
+  // Admin API key scope simulator (#476): POST /api/admin/api-keys/simulate, /simulate/batch, GET /actions
+  app.use(adminFeatureGate, csrfProtection, createAdminApiKeyScopeRouter());
   // Admin wallet challenge cleanup: POST /api/admin/wallet-challenges/cleanup
   app.use(adminFeatureGate, csrfProtection, createAdminWalletChallengeRouter());
 
