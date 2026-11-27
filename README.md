@@ -133,6 +133,12 @@ Escalation tiers:
 - **Mobile Required Gate**: `npm ci`, `npm run type-check`, `npm run lint` in `mobile/`
 - **Contracts Required Gate**: `cargo test` in `contracts/amana_escrow/`
 
+Contact owners through the team's existing channels (issue tracker, team chat, and on-call rotation). Do not embed personal contact details, secrets, or PII 
+- **Frontend Required Gate**: `npm ci`, `npm run lint`, `npm run build`, `npm test` in `frontend/`
+- **Backend Required Gate**: `npm ci`, `npm run build`, `npm test` in `backend/`
+- **Mobile Required Gate**: `npm ci`, `npm run type-check`, `npm run lint` in `mobile/`
+- **Contracts Required Gate**: `cargo test` in `contracts/amana_escrow/`
+
 Contact owners through the team's existing channels (issue tracker, team chat, and on-call rotation). Do not embed personal contact details, secrets, or PII in this repository; keep rosters in the private team directory and reference roles here.
 
 To update the map, edit `docs/OWNERSHIP.md` and keep this summary table in sync. Ownership changes should be reviewed like any other documentation change.
@@ -283,6 +289,13 @@ When escalating, share only the trade identifier, the dispute state, and the evi
 - If evidence cannot be loaded, do not guess the outcome; escalate and leave the dispute open.
 - If a settlement transaction fails, do not retry with altered parameters; escalate so the innov8 team can investigate.
 - If a party stops responding, document the attempts and the response window before deciding.
+
+---
+
+- [Security Policy](./SECURITY.md) — privately report vulnerabilities through GitHub's private vulnerability reporting.
+- [Threat Model](./docs/threat-model.md) — reviewed quarterly and on trigger events; see §8 for cadence/ownership and `docs/threat-model-review-checklist.md` for the reviewer checklist.
+- [Secrets Policy & Rotation](./docs/secrets-policy.md) — secrets inventory (owner, location, max-age), rotation automation, and verification. Rotation reminders
+e window before deciding.
 
 ---
 
